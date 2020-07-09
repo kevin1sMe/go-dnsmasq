@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomoyamachi/go-dnsmasq/cache"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/cache"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 
 	"github.com/coreos/go-systemd/activation"

@@ -12,8 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 	"github.com/miekg/dns"
+
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
 // Config stores options for hostsfile

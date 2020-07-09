@@ -18,11 +18,11 @@ import (
 	"github.com/miekg/dns"
 	"github.com/urfave/cli"
 
-	"github.com/tomoyamachi/go-dnsmasq/hostsfile"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/hostsfile"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
-	"github.com/tomoyamachi/go-dnsmasq/resolvconf"
-	"github.com/tomoyamachi/go-dnsmasq/server"
-	"github.com/tomoyamachi/go-dnsmasq/stats"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/resolvconf"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/server"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/stats"
 )
 
 // set at build time
