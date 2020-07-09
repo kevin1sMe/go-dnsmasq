@@ -1,0 +1,10 @@
+version: '3.6'
+services:
+  dnsmasq:
+    build:
+      context: .
+    volumes:
+    - .:/go/src/github.com/tomoyamachi/go-dnsmasq
+    environment:
+      - LOG_LEVEL=debug
+    command: [ "/usr/bin/tail" ,"-f", "/dev/null" ]

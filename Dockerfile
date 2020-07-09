@@ -1,9 +1,6 @@
-FROM alpine:3.4
-MAINTAINER Jan Broer <janeczku@yahoo.com>
-
-ADD https://github.com/tomoyamachi/go-dnsmasq/releases/download/1.0.7/go-dnsmasq-min_linux-amd64 /go-dnsmasq
-RUN chmod +x /go-dnsmasq
-
+FROM golang:1.14
+ENV TARGET_DIR github.com/tomoyamachi/go-dnsmasq
+WORKDIR /go/src/${TARGET_DIR}
+COPY . .
 ENV DNSMASQ_LISTEN=0.0.0.0
 EXPOSE 53 53/udp
-ENTRYPOINT ["/go-dnsmasq"]
