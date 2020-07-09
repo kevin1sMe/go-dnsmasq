@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
-	"github.com/urfave/cli"
 	"github.com/miekg/dns"
+	"github.com/urfave/cli"
+
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
 // Config provides options to the go-dnsmasq resolver
@@ -92,6 +93,7 @@ func CheckConfig(config *Config) error {
 	if !config.NoRec && len(config.Nameservers) == 0 {
 		return fmt.Errorf("Recursion is enabled but no nameservers are configured")
 	}
+
 	if config.EnableSearch && len(config.SearchDomains) == 0 {
 		config.EnableSearch = false
 		log.Errorf("No search domains configured, disabling search.")
@@ -102,7 +104,7 @@ func CheckConfig(config *Config) error {
 	if config.RCacheTtl <= 0 {
 		return fmt.Errorf("'rcache-ttl' must be greater than 0")
 	}
-	if config.Ndots <= 0 {
+	if config.Ndots < 0 {
 		return fmt.Errorf("'ndots' must be greater than 0")
 	}
 	if config.FwdNdots < 0 {

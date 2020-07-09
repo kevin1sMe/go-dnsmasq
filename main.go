@@ -6,22 +6,20 @@ package main // import "github.com/tomoyamachi/go-dnsmasq"
 
 import (
 	"fmt"
-	"log/syslog"
+	nativelog "log"
 	"net"
 	"os"
 	"os/signal"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
-	nativelog "log"
 
-	log "github.com/tomoyamachi/go-dnsmasq/pkg/log"
-	"github.com/urfave/cli"
 	"github.com/miekg/dns"
+	"github.com/urfave/cli"
 
 	"github.com/tomoyamachi/go-dnsmasq/hostsfile"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 	"github.com/tomoyamachi/go-dnsmasq/resolvconf"
 	"github.com/tomoyamachi/go-dnsmasq/server"
 	"github.com/tomoyamachi/go-dnsmasq/stats"
@@ -52,7 +50,7 @@ func main() {
 	app.Author, app.Email = "", ""
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name:   "log-level, s",
+			Name:   "log-level",
 			Value:  "info",
 			Usage:  "log level",
 			EnvVar: "LOG_LEVEL", // deprecated DNSMASQ_SEARCH
@@ -153,11 +151,12 @@ func main() {
 		// 	EnvVar: "DNSMASQ_MULTITHREADING",
 		// },
 	}
-	if err := log.New(c.String("log-level"));err != nil {
-	nativelog.Fatal(err)
-	}
 
 	app.Action = func(c *cli.Context) error {
+		if err := log.New(c.String("log-level")); err != nil {
+			nativelog.Fatal(err)
+		}
+
 		exitReason := make(chan error)
 		go func() {
 			c := make(chan os.Signal, 1)
