@@ -2,7 +2,7 @@
 // Use of this source code is governed by The MIT License (MIT) that can be
 // found in the LICENSE file.
 
-package main // import "github.com/tomoyamachi/go-dnsmasq"
+package main
 
 import (
 	"fmt"
@@ -23,23 +23,12 @@ import (
 	"github.com/tomoyamachi/go-dnsmasq/pkg/resolvconf"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/server"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/stats"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/types"
 )
 
 // set at build time
 var Version = "dev"
-
-var (
-	nameservers   = []string{}
-	searchDomains = []string{}
-	hostPort      = ""
-	listen        = ""
-)
-
 var exitErr error
-
-func init() {
-
-}
 
 func main() {
 	app := cli.NewApp()
@@ -53,110 +42,94 @@ func main() {
 			Name:   "log-level",
 			Value:  "info",
 			Usage:  "log level",
-			EnvVar: "LOG_LEVEL", // deprecated DNSMASQ_SEARCH
+			EnvVar: types.LogLevel, // deprecated DNSMASQ_SEARCH
 		},
 		cli.StringFlag{
 			Name:   "listen, l",
 			Value:  "127.0.0.1:53",
 			Usage:  "Listen on this `address` <host[:port]>",
-			EnvVar: "DNSMASQ_LISTEN",
+			EnvVar: types.Listen,
 		},
 		cli.BoolFlag{
 			Name:   "default-resolver, d",
 			Usage:  "Update /etc/resolv.conf with the address of go-dnsmasq as nameserver",
-			EnvVar: "DNSMASQ_DEFAULT",
+			EnvVar: types.DefaultResolver,
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "nameservers, n",
-			Value:  "",
 			Usage:  "Comma delimited list of `nameservers` <host[:port][,host[:port]]> (supersedes resolv.conf)",
-			EnvVar: "DNSMASQ_SERVERS",
+			EnvVar: types.NameServers,
 		},
 		cli.StringSliceFlag{
 			Name:   "stubzones, z",
 			Usage:  "Use different nameservers for given domains <domain[,domain]/host[:port][,host[:port]]>",
-			EnvVar: "DNSMASQ_STUB",
+			EnvVar: types.StubZone,
 		},
 		cli.StringFlag{
 			Name:   "hostsfile, f",
-			Value:  "",
 			Usage:  "Path to a hosts `file` (e.g. /etc/hosts)",
-			EnvVar: "DNSMASQ_HOSTSFILE",
+			EnvVar: types.HostsFile,
 		},
-		cli.IntFlag{
+		cli.DurationFlag{
 			Name:   "hostsfile-poll, p",
 			Value:  0,
-			Usage:  "How frequently to poll hosts file (`seconds`, '0' to disable)",
-			EnvVar: "DNSMASQ_POLL",
+			Usage:  "How frequently to poll hosts file (`1s`, '0' to disable)",
+			EnvVar: types.HostsFilePollDuration,
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "search-domains, s",
-			Value:  "",
 			Usage:  "List of search domains <domain[,domain]> (supersedes resolv.conf)",
-			EnvVar: "DNSMASQ_SEARCH_DOMAINS,DNSMASQ_SEARCH,", // deprecated DNSMASQ_SEARCH
-		},
-		cli.BoolFlag{ // deprecated
-			Name:   "append-search-domains, a",
-			Usage:  "Resolve queries using search domains",
-			EnvVar: "DNSMASQ_APPEND",
-			Hidden: true,
+			EnvVar: types.SearchDomains,
 		},
 		cli.BoolFlag{
 			Name:   "enable-search, search",
 			Usage:  "Qualify names with search domains to resolve queries",
-			EnvVar: "DNSMASQ_ENABLE_SEARCH",
+			EnvVar: types.EnableSearch,
 		},
 		cli.IntFlag{
 			Name:   "rcache, r",
 			Value:  0,
 			Usage:  "Response cache `capacity` ('0' disables caching)",
-			EnvVar: "DNSMASQ_RCACHE",
+			EnvVar: types.ResponseCacheCap,
 		},
-		cli.IntFlag{
+		cli.DurationFlag{
 			Name:   "rcache-ttl",
-			Value:  60,
-			Usage:  "TTL in `seconds` for response cache entries",
-			EnvVar: "DNSMASQ_RCACHE_TTL",
+			Value:  time.Minute,
+			Usage:  "TTL for response cache entries",
+			EnvVar: types.ResponseCacheTTL,
 		},
 		cli.BoolFlag{
 			Name:   "no-rec",
 			Usage:  "Disable recursion",
-			EnvVar: "DNSMASQ_NOREC",
+			EnvVar: types.DisableRecursion,
 		},
 		cli.IntFlag{
 			Name:   "fwd-ndots",
-			Value:  0,
 			Usage:  "Number of `dots` a name must have before the query is forwarded",
-			EnvVar: "DNSMASQ_FWD_NDOTS",
+			EnvVar: types.FwdNdots,
 		},
 		cli.IntFlag{
 			Name:   "ndots",
 			Value:  1,
 			Usage:  "Number of `dots` a name must have before doing an initial absolute query (supersedes resolv.conf)",
-			EnvVar: "DNSMASQ_NDOTS",
+			EnvVar: types.Ndots,
 		},
 		cli.BoolFlag{
 			Name:   "round-robin",
 			Usage:  "Enable round robin of A/AAAA records",
-			EnvVar: "DNSMASQ_RR",
+			EnvVar: types.RoundRobin,
 		},
 		cli.BoolFlag{
 			Name:   "systemd",
 			Usage:  "Bind to socket activated by Systemd (supersedes '--listen')",
-			EnvVar: "DNSMASQ_SYSTEMD",
+			EnvVar: types.Systemd,
 		},
-		// cli.BoolFlag{
-		// 	Name:   "multithreading",
-		// 	Usage:  "Enable multithreading (experimental)",
-		// 	EnvVar: "DNSMASQ_MULTITHREADING",
-		// },
 	}
 
 	app.Action = func(c *cli.Context) error {
 		if err := log.New(c.String("log-level")); err != nil {
 			nativelog.Fatal(err)
 		}
-
 		exitReason := make(chan error)
 		go func() {
 			c := make(chan os.Signal, 1)
@@ -165,55 +138,30 @@ func main() {
 			log.Info("Application exit requested by signal:", sig)
 			exitReason <- nil
 		}()
-
-		var enableSearch bool
-		if c.IsSet("append-search-domains") {
-			log.Info("The flag '--append-search-domains' is deprecated. Please use '--enable-search' or '-search' instead.")
-			enableSearch = c.Bool("append-search-domains")
-		} else {
-			enableSearch = c.Bool("enable-search")
-		}
+		enableSearch := c.Bool("enable-search")
 
 		// if c.Bool("multithreading") {
 		// 	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
 		// }
 
-		if ns := c.String("nameservers"); ns != "" {
-			for _, hostPort := range strings.Split(ns, ",") {
-				hostPort = strings.TrimSpace(hostPort)
-				if strings.HasSuffix(hostPort, "]") {
-					hostPort += ":53"
-				} else if !strings.Contains(hostPort, ":") {
-					hostPort += ":53"
-				}
-				if err := validateHostPort(hostPort); err != nil {
-					log.Fatalf("Nameserver is invalid: %s", err)
-				}
-
-				nameservers = append(nameservers, hostPort)
-			}
+		nameservers, err := createNameservers(c.StringSlice("nameservers"))
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		if sd := c.String("search-domains"); sd != "" {
-			for _, domain := range strings.Split(sd, ",") {
-				if dns.CountLabel(domain) < 2 {
-					log.Fatalf("Search domain must have at least one dot in name: %s", domain)
-				}
-				domain = strings.TrimSpace(domain)
-				domain = dns.Fqdn(strings.ToLower(domain))
-				searchDomains = append(searchDomains, domain)
-			}
+		searchDomains, err := createSearchDomains(c.StringSlice("search-domains"))
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		listen = c.String("listen")
-		if strings.HasSuffix(listen, "]") {
-			listen += ":53"
-		} else if !strings.Contains(listen, ":") {
-			listen += ":53"
+		stubmap, err := createStubMap(c.StringSlice("stubzones"))
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		if err := validateHostPort(listen); err != nil {
-			log.Fatalf("Listen address is invalid: %s", err)
+		listen, err := createListenAddress(c.String("listen"))
+		if err != nil {
+			log.Fatal(err)
 		}
 
 		config := &server.Config{
@@ -224,15 +172,16 @@ func main() {
 			SearchDomains:   searchDomains,
 			EnableSearch:    enableSearch,
 			Hostsfile:       c.String("hostsfile"),
-			PollInterval:    c.Int("hostsfile-poll"),
+			PollInterval:    c.Duration("hostsfile-poll"),
 			RoundRobin:      c.Bool("round-robin"),
 			NoRec:           c.Bool("no-rec"),
 			FwdNdots:        c.Int("fwd-ndots"),
 			Ndots:           c.Int("ndots"),
 			ReadTimeout:     2 * time.Second,
 			RCache:          c.Int("rcache"),
-			RCacheTtl:       c.Int("rcache-ttl"),
+			RCacheTtl:       c.Duration("rcache-ttl"),
 			Verbose:         c.Bool("verbose"),
+			Stub:            stubmap,
 		}
 
 		resolvconf.Clean()
@@ -244,40 +193,6 @@ func main() {
 
 		if err := server.CheckConfig(config); err != nil {
 			log.Fatal(err.Error())
-		}
-
-		if stubzones := c.StringSlice("stubzones"); len(stubzones) > 0 {
-			stubmap := make(map[string][]string)
-			for _, stubzone := range stubzones {
-				segments := strings.Split(stubzone, "/")
-				if len(segments) != 2 || len(segments[0]) == 0 || len(segments[1]) == 0 {
-					log.Fatalf("Invalid value for --stubzones")
-				}
-
-				hosts := strings.Split(segments[1], ",")
-				for _, hostPort := range hosts {
-					hostPort = strings.TrimSpace(hostPort)
-					if strings.HasSuffix(hostPort, "]") {
-						hostPort += ":53"
-					} else if !strings.Contains(hostPort, ":") {
-						hostPort += ":53"
-					}
-
-					if err := validateHostPort(hostPort); err != nil {
-						log.Fatalf("Stubzone server address is invalid: %s", err)
-					}
-
-					for _, sdomain := range strings.Split(segments[0], ",") {
-						if dns.CountLabel(sdomain) < 1 {
-							log.Fatalf("Stubzone domain is not a fully-qualified domain name: %s", sdomain)
-						}
-						sdomain = strings.TrimSpace(sdomain)
-						sdomain = dns.Fqdn(sdomain)
-						stubmap[sdomain] = append(stubmap[sdomain], hostPort)
-					}
-				}
-			}
-			config.Stub = &stubmap
 		}
 
 		log.Infof("Starting go-dnsmasq server %s", Version)
@@ -328,6 +243,86 @@ func main() {
 	}
 
 	app.Run(os.Args)
+}
+
+func createListenAddress(listen string) (string, error) {
+	if strings.HasSuffix(listen, "]") {
+		listen += ":53"
+	} else if !strings.Contains(listen, ":") {
+		listen += ":53"
+	}
+	if err := validateHostPort(listen); err != nil {
+		return "", fmt.Errorf("Listen address: %s", err)
+	}
+	return listen, nil
+}
+
+func createSearchDomains(domains []string) ([]string, error) {
+	searchDomains := []string{}
+	for _, domain := range domains {
+		if dns.CountLabel(domain) < 2 {
+			return nil, fmt.Errorf("Search domain must have at least one dot in name: %s", domain)
+		}
+		domain = strings.TrimSpace(domain)
+		domain = dns.Fqdn(strings.ToLower(domain))
+		searchDomains = append(searchDomains, domain)
+	}
+	return searchDomains, nil
+}
+
+func createNameservers(servers []string) ([]string, error) {
+	nameservers := []string{}
+	for _, hostPort := range servers {
+		hostPort = strings.TrimSpace(hostPort)
+		if strings.HasSuffix(hostPort, "]") {
+			hostPort += ":53"
+		} else if !strings.Contains(hostPort, ":") {
+			hostPort += ":53"
+		}
+		if err := validateHostPort(hostPort); err != nil {
+			return nil, fmt.Errorf("Nameserver is invalid: %s", err)
+		}
+		nameservers = append(nameservers, hostPort)
+	}
+	return nameservers, nil
+}
+
+func createStubMap(stubzones []string) (map[string][]string, error) {
+	if len(stubzones) == 0 {
+		return nil, nil
+	}
+	stubmap := make(map[string][]string)
+	for _, stubzone := range stubzones {
+		segments := strings.Split(stubzone, "/")
+		if len(segments) != 2 || len(segments[0]) == 0 || len(segments[1]) == 0 {
+			return nil, fmt.Errorf("Invalid value for --stubzones")
+		}
+
+		hosts := strings.Split(segments[1], ",")
+		for _, hostPort := range hosts {
+			hostPort = strings.TrimSpace(hostPort)
+			if strings.HasSuffix(hostPort, "]") {
+				hostPort += ":53"
+			} else if !strings.Contains(hostPort, ":") {
+				hostPort += ":53"
+			}
+
+			if err := validateHostPort(hostPort); err != nil {
+				return nil, fmt.Errorf("Stubzone server address is invalid: %s", err)
+			}
+
+			for _, sdomain := range strings.Split(segments[0], ",") {
+				if dns.CountLabel(sdomain) < 1 {
+					return nil, fmt.Errorf("Stubzone domain is not a fully-qualified domain name: %s", sdomain)
+				}
+				sdomain = strings.TrimSpace(sdomain)
+				sdomain = dns.Fqdn(sdomain)
+				stubmap[sdomain] = append(stubmap[sdomain], hostPort)
+			}
+		}
+	}
+
+	return stubmap, nil
 }
 
 func validateHostPort(hostPort string) error {

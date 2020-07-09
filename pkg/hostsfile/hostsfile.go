@@ -20,7 +20,7 @@ import (
 // Config stores options for hostsfile
 type Config struct {
 	// Positive value enables polling
-	Poll    int
+	Poll    time.Duration
 	Verbose bool
 }
 
@@ -99,14 +99,12 @@ func (h *Hostsfile) loadHostEntries() error {
 	return nil
 }
 
-func (h *Hostsfile) monitorHostEntries(poll int) {
+func (h *Hostsfile) monitorHostEntries(t time.Duration) {
 	hf := h.file
 
 	if hf.path == "" {
 		return
 	}
-
-	t := time.Duration(poll) * time.Second
 
 	for _ = range time.Tick(t) {
 		//log.Printf("go-dnsmasq: checking %q for updates…", hf.path)

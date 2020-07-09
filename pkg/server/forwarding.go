@@ -235,11 +235,13 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	nservers = s.config.Nameservers
 
 	// Check whether the name matches a stub zone
-	for zone, srv := range *s.config.Stub {
-		if strings.HasSuffix(req.Question[0].Name, zone) {
-			nservers = srv
-			StatsStubForwardCount.Inc(1)
-			break
+	if s.config.Stub != nil {
+		for zone, srv := range s.config.Stub {
+			if strings.HasSuffix(req.Question[0].Name, zone) {
+				nservers = srv
+				StatsStubForwardCount.Inc(1)
+				break
+			}
 		}
 	}
 

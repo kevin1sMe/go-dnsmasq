@@ -31,7 +31,7 @@ type Config struct {
 	// Path to the hostfile
 	Hostsfile string `json:"hostfile,omitempty"`
 	// Hostfile Polling
-	PollInterval int `json:"poll_interval,omitempty"`
+	PollInterval time.Duration `json:"poll_interval,omitempty"`
 	// Round robin A/AAAA replies. Default is true.
 	RoundRobin bool `json:"round_robin,omitempty"`
 	// List of ip:port, seperated by commas of recursive nameservers to forward queries to.
@@ -46,7 +46,7 @@ type Config struct {
 	// RCache, capacity of response cache in resource records stored.
 	RCache int `json:"rcache,omitempty"`
 	// RCacheTtl, how long to cache in seconds.
-	RCacheTtl int `json:"rcache_ttl,omitempty"`
+	RCacheTtl time.Duration `json:"rcache_ttl,omitempty"`
 	// How many dots a name must have before we allow to forward the query as-is. Defaults to 1.
 	FwdNdots int `json:"fwd_ndots,omitempty"`
 	// How many dots a name must have before we do an initial absolute query. Defaults to 1.
@@ -55,7 +55,7 @@ type Config struct {
 	Verbose bool `json:"-"`
 
 	// Stub zones support. Map contains domainname -> nameserver:port
-	Stub *map[string][]string
+	Stub map[string][]string
 }
 
 func ResolvConf(config *Config, ctx *cli.Context) error {
@@ -114,9 +114,6 @@ func CheckConfig(config *Config) error {
 	// Set defaults
 	config.Ttl = 360
 	config.HostsTtl = 10
-
-	stubmap := make(map[string][]string)
-	config.Stub = &stubmap
 	return nil
 }
 
