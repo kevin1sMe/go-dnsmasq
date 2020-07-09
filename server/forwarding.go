@@ -7,7 +7,7 @@ package server
 import (
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 	"github.com/miekg/dns"
 )
 

@@ -15,10 +15,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	nativelog "log"
 
-	log "github.com/Sirupsen/logrus"
-	logrus_syslog "github.com/Sirupsen/logrus/hooks/syslog"
-	"github.com/codegangsta/cli"
+	log "github.com/tomoyamachi/go-dnsmasq/pkg/log"
+	"github.com/urfave/cli"
 	"github.com/miekg/dns"
 
 	"github.com/tomoyamachi/go-dnsmasq/hostsfile"
@@ -40,7 +40,7 @@ var (
 var exitErr error
 
 func init() {
-	log.SetOutput(os.Stdout)
+
 }
 
 func main() {
@@ -51,6 +51,12 @@ func main() {
 	app.Version = Version
 	app.Author, app.Email = "", ""
 	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "log-level, s",
+			Value:  "info",
+			Usage:  "log level",
+			EnvVar: "LOG_LEVEL", // deprecated DNSMASQ_SEARCH
+		},
 		cli.StringFlag{
 			Name:   "listen, l",
 			Value:  "127.0.0.1:53",
@@ -141,29 +147,23 @@ func main() {
 			Usage:  "Bind to socket activated by Systemd (supersedes '--listen')",
 			EnvVar: "DNSMASQ_SYSTEMD",
 		},
-		cli.BoolFlag{
-			Name:   "verbose",
-			Usage:  "Enable verbose logging",
-			EnvVar: "DNSMASQ_VERBOSE",
-		},
-		cli.BoolFlag{
-			Name:   "syslog",
-			Usage:  "Enable syslog logging",
-			EnvVar: "DNSMASQ_SYSLOG",
-		},
-		cli.BoolFlag{
-			Name:   "multithreading",
-			Usage:  "Enable multithreading (experimental)",
-			EnvVar: "DNSMASQ_MULTITHREADING",
-		},
+		// cli.BoolFlag{
+		// 	Name:   "multithreading",
+		// 	Usage:  "Enable multithreading (experimental)",
+		// 	EnvVar: "DNSMASQ_MULTITHREADING",
+		// },
 	}
+	if err := log.New(c.String("log-level"));err != nil {
+	nativelog.Fatal(err)
+	}
+
 	app.Action = func(c *cli.Context) error {
 		exitReason := make(chan error)
 		go func() {
 			c := make(chan os.Signal, 1)
 			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 			sig := <-c
-			log.Infoln("Application exit requested by signal:", sig)
+			log.Info("Application exit requested by signal:", sig)
 			exitReason <- nil
 		}()
 
@@ -175,25 +175,9 @@ func main() {
 			enableSearch = c.Bool("enable-search")
 		}
 
-		if c.Bool("multithreading") {
-			runtime.GOMAXPROCS(runtime.NumCPU() + 1)
-		}
-
-		if c.Bool("verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-
-		if c.Bool("syslog") {
-			log.SetFormatter(&log.TextFormatter{DisableTimestamp: true, DisableColors: true})
-			hook, err := logrus_syslog.NewSyslogHook("", "", syslog.LOG_DAEMON|syslog.LOG_INFO, "go-dnsmasq")
-			if err != nil {
-				log.Error("Unable to connect to local syslog daemon")
-			} else {
-				log.AddHook(hook)
-			}
-		} else {
-			log.SetFormatter(&log.TextFormatter{})
-		}
+		// if c.Bool("multithreading") {
+		// 	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
+		// }
 
 		if ns := c.String("nameservers"); ns != "" {
 			for _, hostPort := range strings.Split(ns, ",") {
@@ -255,7 +239,7 @@ func main() {
 		resolvconf.Clean()
 		if err := server.ResolvConf(config, c); err != nil {
 			if !os.IsNotExist(err) {
-				log.Warnf("Error parsing resolv.conf: %s", err.Error())
+				log.Errorf("Error parsing resolv.conf: %s", err.Error())
 			}
 		}
 
@@ -321,7 +305,7 @@ func main() {
 			address, _, _ := net.SplitHostPort(config.DnsAddr)
 			err := resolvconf.StoreAddress(address)
 			if err != nil {
-				log.Warnf("Failed to register as default nameserver: %s", err)
+				log.Errorf("Failed to register as default nameserver: %s", err)
 			}
 
 			defer func() {

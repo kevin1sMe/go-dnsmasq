@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 	"github.com/miekg/dns"
 )
 
@@ -112,7 +112,7 @@ func (h *Hostsfile) monitorHostEntries(poll int) {
 
 		mtime, size, err := hostsFileMetadata(hf.path)
 		if err != nil {
-			log.Warnf("Error stating hostsfile: %s", err)
+			log.Errorf("Error stating hostsfile: %s", err)
 			continue
 		}
 
@@ -121,7 +121,7 @@ func (h *Hostsfile) monitorHostEntries(poll int) {
 		}
 
 		if err := h.loadHostEntries(); err != nil {
-			log.Warnf("Error parsing hostsfile: %s", err)
+			log.Errorf("Error parsing hostsfile: %s", err)
 		}
 
 		log.Debug("Reloaded updated hostsfile")

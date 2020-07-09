@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
+	"github.com/urfave/cli"
 	"github.com/miekg/dns"
 )
 
@@ -94,7 +94,7 @@ func CheckConfig(config *Config) error {
 	}
 	if config.EnableSearch && len(config.SearchDomains) == 0 {
 		config.EnableSearch = false
-		log.Warnf("No search domains configured, disabling search.")
+		log.Errorf("No search domains configured, disabling search.")
 	}
 	if config.RCache < 0 {
 		return fmt.Errorf("'rcache' must be equal or greater than 0")
