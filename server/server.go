@@ -14,7 +14,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-systemd/activation"
-	"github.com/janeczku/go-dnsmasq/cache"
+	"github.com/tomoyamachi/go-dnsmasq/cache"
 	"github.com/miekg/dns"
 )
 

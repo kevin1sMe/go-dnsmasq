@@ -1,11 +1,11 @@
 # go-dnsmasq
-[![Latest Version](https://img.shields.io/github/release/janeczku/go-dnsmasq.svg?maxAge=60)][release]
-[![Github All Releases](https://img.shields.io/github/downloads/janeczku/go-dnsmasq/total.svg?maxAge=86400)]()
-[![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/go-dnsmasq.svg?maxAge=86400)][hub]
-[![License](https://img.shields.io/github/license/janeczku/go-dnsmasq.svg?maxAge=86400)]()
+[![Latest Version](https://img.shields.io/github/release/tomoyamachi/go-dnsmasq.svg?maxAge=60)][release]
+[![Github All Releases](https://img.shields.io/github/downloads/tomoyamachi/go-dnsmasq/total.svg?maxAge=86400)]()
+[![Docker Pulls](https://img.shields.io/docker/pulls/tomoyamachi/go-dnsmasq.svg?maxAge=86400)][hub]
+[![License](https://img.shields.io/github/license/tomoyamachi/go-dnsmasq.svg?maxAge=86400)]()
 
-[release]: https://github.com/janeczku/go-dnsmasq/releases
-[hub]: https://hub.docker.com/r/janeczku/go-dnsmasq/
+[release]: https://github.com/tomoyamachi/go-dnsmasq/releases
+[hub]: https://hub.docker.com/r/tomoyamachi/go-dnsmasq/
 
 go-dnsmasq is a lightweight (1.2 MB) DNS caching server/forwarder with minimal filesystem and runtime overhead.
 
@@ -79,7 +79,7 @@ Set to your StatHat account email address
 
 #### Run from the command line
 
-Download the binary for your OS from the [releases page](https://github.com/janeczku/go-dnsmasq/releases/latest).    
+Download the binary for your OS from the [releases page](https://github.com/tomoyamachi/go-dnsmasq/releases/latest).    
 
 go-dnsmasq is available in two versions. The minimal version (`go-dnsmasq-min`) has a lower memory footprint but doesn't have caching, stats reporting and systemd support.
 
@@ -89,10 +89,10 @@ go-dnsmasq is available in two versions. The minimal version (`go-dnsmasq-min`) 
 
 #### Run as a Docker container
 
-Docker Hub trusted builds are [available](https://hub.docker.com/r/janeczku/go-dnsmasq/).
+Docker Hub trusted builds are [available](https://hub.docker.com/r/tomoyamachi/go-dnsmasq/).
 
 ```sh
-docker run -d -p 53:53/udp -p 53:53 janeczku/go-dnsmasq:latest
+docker run -d -p 53:53/udp -p 53:53 tomoyamachi/go-dnsmasq:latest
 ```
 
 You can pass go-dnsmasq configuration parameters by setting the corresponding environmental variables with Docker's `-e` flag.
