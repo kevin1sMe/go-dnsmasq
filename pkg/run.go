@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,6 +14,8 @@ import (
 	"github.com/tomoyamachi/go-dnsmasq/pkg/resolvconf"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/server"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/stats"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Args struct {
@@ -19,18 +23,25 @@ type Args struct {
 }
 
 func Run(sconf *server.Config, version string) error {
-	exitReason := make(chan error)
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		sig := <-c
-		log.Info("Application exit requested by signal:", sig)
-		exitReason <- nil
-	}()
+	// trap Ctrl+C and call cancel on the context
+	ctx, done := context.WithCancel(context.Background())
+	eg, gctx := errgroup.WithContext(ctx)
 
-	// if c.Bool("multithreading") {
-	// 	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
-	// }
+	eg.Go(func() error {
+		signalChannel := make(chan os.Signal, 1)
+		signal.Notify(signalChannel, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		select {
+		case sig := <-signalChannel:
+			log.Debugf("Received signal: %s\n", sig)
+			done()
+		case <-gctx.Done():
+			log.Debugf("closing signal goroutine\n")
+			return gctx.Err()
+		}
+
+		return nil
+	})
 
 	if err := server.CheckConfig(sconf); err != nil {
 		return fmt.Errorf("check server config: %w", err)
@@ -50,9 +61,6 @@ func Run(sconf *server.Config, version string) error {
 	}
 
 	s := server.New(hf, sconf, version)
-
-	defer s.Stop()
-
 	stats.Collect()
 
 	if sconf.DefaultResolver {
@@ -67,12 +75,25 @@ func Run(sconf *server.Config, version string) error {
 		}()
 	}
 
-	go func() {
-		if err := s.Run(); err != nil {
-			exitReason <- err
+	eg.Go(func() error {
+		errCh := make(chan error)
+		go func() { errCh <- s.Run(gctx) }()
+		select {
+		case err := <-errCh:
+			log.Debug("error from errCh")
+			return err
+		case <-gctx.Done():
+			return gctx.Err()
 		}
-	}()
+	})
 
-	err = <-exitReason
-	return err
+	if err := eg.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			log.Info("context was canceled")
+			return nil
+		} else {
+			return err
+		}
+	}
+	return nil
 }
