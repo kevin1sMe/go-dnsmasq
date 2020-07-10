@@ -33,7 +33,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	if refuse {
 		m := new(dns.Msg)
 		m.SetRcode(req, dns.RcodeRefused)
-		writeMsg(w, m)
 		return m
 	}
 
@@ -64,7 +63,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 					req.Id, dns.RcodeToString[absoluteRes.Rcode])
 				absoluteRes.Compress = true
 				absoluteRes.Id = req.Id
-				writeMsg(w, absoluteRes)
 				return absoluteRes
 			}
 			didAbsolute = true
@@ -87,7 +85,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 				req.Id, dns.RcodeToString[searchRes.Rcode])
 			searchRes.Compress = true
 			searchRes.Id = req.Id
-			writeMsg(w, searchRes)
 			return searchRes
 		}
 		didSearch = true
@@ -109,7 +106,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 					req.Id, dns.RcodeToString[absoluteRes.Rcode])
 				absoluteRes.Compress = true
 				absoluteRes.Id = req.Id
-				writeMsg(w, absoluteRes)
 				return absoluteRes
 			}
 			didAbsolute = true
@@ -126,7 +122,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			req.Id, dns.RcodeToString[absoluteRes.Rcode])
 		absoluteRes.Compress = true
 		absoluteRes.Id = req.Id
-		writeMsg(w, absoluteRes)
 		return absoluteRes
 	}
 
@@ -135,7 +130,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			req.Id, dns.RcodeToString[searchRes.Rcode])
 		m := new(dns.Msg)
 		m.SetRcode(req, searchRes.Rcode)
-		writeMsg(w, m)
 		return m
 	}
 
@@ -144,7 +138,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	log.Debugf("[%d] Error forwarding query. Returning SRVFAIL.", req.Id)
 	m := new(dns.Msg)
 	m.SetRcode(req, dns.RcodeServerFailure)
-	writeMsg(w, m)
 	return m
 }
 
@@ -300,15 +293,8 @@ func (s *server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m.RecursionAvailable = true
 	if records, err := s.PTRRecords(req.Question[0]); err == nil && len(records) > 0 {
 		m.Answer = records
-		writeMsg(w, m)
 		return m
 	}
 	// Always forward if not found locally.
 	return s.ServeDNSForward(w, req)
-}
-
-func writeMsg(w dns.ResponseWriter, m *dns.Msg) {
-	if err := w.WriteMsg(m); err != nil {
-		log.Errorf("[%d] Failed to return reply: %v", m.Id, err)
-	}
 }
