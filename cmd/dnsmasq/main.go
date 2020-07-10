@@ -7,28 +7,20 @@ package main
 import (
 	"fmt"
 	nativelog "log"
-	"net"
 	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
 	"time"
 
-	"github.com/miekg/dns"
 	"github.com/urfave/cli"
 
-	"github.com/tomoyamachi/go-dnsmasq/pkg/hostsfile"
+	"github.com/tomoyamachi/go-dnsmasq/pkg"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/resolvconf"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/server"
-	"github.com/tomoyamachi/go-dnsmasq/pkg/stats"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/types"
 )
 
 // set at build time
 var Version = "dev"
-var exitErr error
 
 func main() {
 	app := cli.NewApp()
@@ -130,36 +122,24 @@ func main() {
 		if err := log.New(c.String("log-level")); err != nil {
 			nativelog.Fatal(err)
 		}
-		exitReason := make(chan error)
-		go func() {
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-			sig := <-c
-			log.Info("Application exit requested by signal:", sig)
-			exitReason <- nil
-		}()
-		enableSearch := c.Bool("enable-search")
+		log.Infof("Starting go-dnsmasq server %s", Version)
 
-		// if c.Bool("multithreading") {
-		// 	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
-		// }
-
-		nameservers, err := createNameservers(c.StringSlice("nameservers"))
+		nameservers, err := server.CreateNameservers(c.StringSlice("nameservers"))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		searchDomains, err := createSearchDomains(c.StringSlice("search-domains"))
+		searchDomains, err := server.CreateSearchDomains(c.StringSlice("search-domains"))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		stubmap, err := createStubMap(c.StringSlice("stubzones"))
+		stubmap, err := server.CreateStubMap(c.StringSlice("stubzones"))
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		listen, err := createListenAddress(c.String("listen"))
+		listen, err := server.CreateListenAddress(c.String("listen"))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -170,7 +150,7 @@ func main() {
 			Nameservers:     nameservers,
 			Systemd:         c.Bool("systemd"),
 			SearchDomains:   searchDomains,
-			EnableSearch:    enableSearch,
+			EnableSearch:    c.Bool("enable-search"),
 			Hostsfile:       c.String("hostsfile"),
 			PollInterval:    c.Duration("hostsfile-poll"),
 			RoundRobin:      c.Bool("round-robin"),
@@ -185,157 +165,14 @@ func main() {
 		}
 
 		resolvconf.Clean()
-		if err := server.ResolvConf(config, c); err != nil {
+		if err := server.ResolvConf(config, c.IsSet("ndots")); err != nil {
 			if !os.IsNotExist(err) {
-				log.Errorf("Error parsing resolv.conf: %s", err.Error())
+				return fmt.Errorf("parsing resolve.conf: %w", err)
 			}
 		}
 
-		if err := server.CheckConfig(config); err != nil {
-			log.Fatal(err.Error())
-		}
-
-		log.Infof("Starting go-dnsmasq server %s", Version)
-		log.Infof("Nameservers: %v", config.Nameservers)
-		if config.EnableSearch {
-			log.Infof("Search domains: %v", config.SearchDomains)
-		}
-
-		hf, err := hosts.NewHostsfile(config.Hostsfile, &hosts.Config{
-			Poll:    config.PollInterval,
-			Verbose: config.Verbose,
-		})
-		if err != nil {
-			log.Fatalf("Error loading hostsfile: %s", err)
-		}
-
-		s := server.New(hf, config, Version)
-
-		defer s.Stop()
-
-		stats.Collect()
-
-		if config.DefaultResolver {
-			address, _, _ := net.SplitHostPort(config.DnsAddr)
-			err := resolvconf.StoreAddress(address)
-			if err != nil {
-				log.Errorf("Failed to register as default nameserver: %s", err)
-			}
-
-			defer func() {
-				log.Info("Restoring /etc/resolv.conf")
-				resolvconf.Clean()
-			}()
-		}
-
-		go func() {
-			if err := s.Run(); err != nil {
-				exitReason <- err
-			}
-		}()
-
-		exitErr = <-exitReason
-		if exitErr != nil {
-			log.Fatalf("Server error: %s", err)
-		}
-
-		return nil
+		return pkg.Run(config, Version)
 	}
 
 	app.Run(os.Args)
-}
-
-func createListenAddress(listen string) (string, error) {
-	if strings.HasSuffix(listen, "]") {
-		listen += ":53"
-	} else if !strings.Contains(listen, ":") {
-		listen += ":53"
-	}
-	if err := validateHostPort(listen); err != nil {
-		return "", fmt.Errorf("Listen address: %s", err)
-	}
-	return listen, nil
-}
-
-func createSearchDomains(domains []string) ([]string, error) {
-	searchDomains := []string{}
-	for _, domain := range domains {
-		if dns.CountLabel(domain) < 2 {
-			return nil, fmt.Errorf("Search domain must have at least one dot in name: %s", domain)
-		}
-		domain = strings.TrimSpace(domain)
-		domain = dns.Fqdn(strings.ToLower(domain))
-		searchDomains = append(searchDomains, domain)
-	}
-	return searchDomains, nil
-}
-
-func createNameservers(servers []string) ([]string, error) {
-	nameservers := []string{}
-	for _, hostPort := range servers {
-		hostPort = strings.TrimSpace(hostPort)
-		if strings.HasSuffix(hostPort, "]") {
-			hostPort += ":53"
-		} else if !strings.Contains(hostPort, ":") {
-			hostPort += ":53"
-		}
-		if err := validateHostPort(hostPort); err != nil {
-			return nil, fmt.Errorf("Nameserver is invalid: %s", err)
-		}
-		nameservers = append(nameservers, hostPort)
-	}
-	return nameservers, nil
-}
-
-func createStubMap(stubzones []string) (map[string][]string, error) {
-	if len(stubzones) == 0 {
-		return nil, nil
-	}
-	stubmap := make(map[string][]string)
-	for _, stubzone := range stubzones {
-		segments := strings.Split(stubzone, "/")
-		if len(segments) != 2 || len(segments[0]) == 0 || len(segments[1]) == 0 {
-			return nil, fmt.Errorf("Invalid value for --stubzones")
-		}
-
-		hosts := strings.Split(segments[1], ",")
-		for _, hostPort := range hosts {
-			hostPort = strings.TrimSpace(hostPort)
-			if strings.HasSuffix(hostPort, "]") {
-				hostPort += ":53"
-			} else if !strings.Contains(hostPort, ":") {
-				hostPort += ":53"
-			}
-
-			if err := validateHostPort(hostPort); err != nil {
-				return nil, fmt.Errorf("Stubzone server address is invalid: %s", err)
-			}
-
-			for _, sdomain := range strings.Split(segments[0], ",") {
-				if dns.CountLabel(sdomain) < 1 {
-					return nil, fmt.Errorf("Stubzone domain is not a fully-qualified domain name: %s", sdomain)
-				}
-				sdomain = strings.TrimSpace(sdomain)
-				sdomain = dns.Fqdn(sdomain)
-				stubmap[sdomain] = append(stubmap[sdomain], hostPort)
-			}
-		}
-	}
-
-	return stubmap, nil
-}
-
-func validateHostPort(hostPort string) error {
-	host, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return err
-	}
-	if ip := net.ParseIP(host); ip == nil {
-		return fmt.Errorf("Bad IP address: %s", host)
-	}
-
-	if p, _ := strconv.Atoi(port); p < 1 || p > 65535 {
-		return fmt.Errorf("Bad port number %s", port)
-	}
-	return nil
 }

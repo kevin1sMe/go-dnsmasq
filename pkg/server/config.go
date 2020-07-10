@@ -7,11 +7,11 @@ package server
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/miekg/dns"
-	"github.com/urfave/cli"
 
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
@@ -58,7 +58,7 @@ type Config struct {
 	Stub map[string][]string
 }
 
-func ResolvConf(config *Config, ctx *cli.Context) error {
+func ResolvConf(config *Config, forceNdots bool) error {
 	// Get host resolv config
 	resolvConf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
@@ -71,7 +71,7 @@ func ResolvConf(config *Config, ctx *cli.Context) error {
 		}
 	}
 
-	if !ctx.IsSet("ndots") && resolvConf.Ndots != 1 {
+	if !forceNdots && resolvConf.Ndots != 1 {
 		log.Debugf("Setting ndots from resolv.conf: %d", resolvConf.Ndots)
 		config.Ndots = resolvConf.Ndots
 	}
@@ -122,4 +122,99 @@ func appendDomain(s1, s2 string) string {
 		strings.TrimLeft(s2, ".")
 	}
 	return dns.Fqdn(s1) + dns.Fqdn(s2)
+}
+
+func CreateListenAddress(listen string) (string, error) {
+	if strings.HasSuffix(listen, "]") {
+		listen += ":53"
+	} else if !strings.Contains(listen, ":") {
+		listen += ":53"
+	}
+	if err := validateHostPort(listen); err != nil {
+		return "", fmt.Errorf("Listen address: %s", err)
+	}
+	return listen, nil
+}
+
+func CreateSearchDomains(domains []string) ([]string, error) {
+	searchDomains := []string{}
+	for _, domain := range domains {
+		if dns.CountLabel(domain) < 2 {
+			return nil, fmt.Errorf("Search domain must have at least one dot in name: %s", domain)
+		}
+		domain = strings.TrimSpace(domain)
+		domain = dns.Fqdn(strings.ToLower(domain))
+		searchDomains = append(searchDomains, domain)
+	}
+	return searchDomains, nil
+}
+
+func CreateNameservers(servers []string) ([]string, error) {
+	nameservers := []string{}
+	for _, hostPort := range servers {
+		hostPort = strings.TrimSpace(hostPort)
+		if strings.HasSuffix(hostPort, "]") {
+			hostPort += ":53"
+		} else if !strings.Contains(hostPort, ":") {
+			hostPort += ":53"
+		}
+		if err := validateHostPort(hostPort); err != nil {
+			return nil, fmt.Errorf("Nameserver is invalid: %s", err)
+		}
+		nameservers = append(nameservers, hostPort)
+	}
+	return nameservers, nil
+}
+
+func CreateStubMap(stubzones []string) (map[string][]string, error) {
+	if len(stubzones) == 0 {
+		return nil, nil
+	}
+	stubmap := make(map[string][]string)
+	for _, stubzone := range stubzones {
+		segments := strings.Split(stubzone, "/")
+		if len(segments) != 2 || len(segments[0]) == 0 || len(segments[1]) == 0 {
+			return nil, fmt.Errorf("Invalid value for --stubzones")
+		}
+
+		hosts := strings.Split(segments[1], ",")
+		for _, hostPort := range hosts {
+			hostPort = strings.TrimSpace(hostPort)
+			if strings.HasSuffix(hostPort, "]") {
+				hostPort += ":53"
+			} else if !strings.Contains(hostPort, ":") {
+				hostPort += ":53"
+			}
+
+			if err := validateHostPort(hostPort); err != nil {
+				return nil, fmt.Errorf("Stubzone server address is invalid: %s", err)
+			}
+
+			for _, sdomain := range strings.Split(segments[0], ",") {
+				if dns.CountLabel(sdomain) < 1 {
+					return nil, fmt.Errorf("Stubzone domain is not a fully-qualified domain name: %s", sdomain)
+				}
+				sdomain = strings.TrimSpace(sdomain)
+				sdomain = dns.Fqdn(sdomain)
+				stubmap[sdomain] = append(stubmap[sdomain], hostPort)
+			}
+		}
+	}
+
+	return stubmap, nil
+}
+
+func validateHostPort(hostPort string) error {
+	host, port, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return err
+	}
+	if ip := net.ParseIP(host); ip == nil {
+		return fmt.Errorf("Bad IP address: %s", host)
+	}
+
+	if p, _ := strconv.Atoi(port); p < 1 || p > 65535 {
+		return fmt.Errorf("Bad port number %s", port)
+	}
+	return nil
 }
