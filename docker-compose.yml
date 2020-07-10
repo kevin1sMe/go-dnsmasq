@@ -8,3 +8,7 @@ services:
     environment:
       - LOG_LEVEL=debug
     command: [ "/usr/bin/tail" ,"-f", "/dev/null" ]
+    # go run $(pwd)/cmd/dnsmasq -h
+  request:
+    build:
+      context: ./develop/request
