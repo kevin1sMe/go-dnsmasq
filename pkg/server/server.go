@@ -52,6 +52,7 @@ func (s *server) Run(ctx context.Context) error {
 	if s.config.Systemd {
 		return s.runSystemd(ctx, mux)
 	}
+	log.Debug("start as proccess")
 	return s.runProccess(ctx, mux)
 }
 

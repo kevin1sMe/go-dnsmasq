@@ -27,6 +27,7 @@ func Run(sconf *server.Config, version string) error {
 	ctx, done := context.WithCancel(context.Background())
 	eg, gctx := errgroup.WithContext(ctx)
 
+	// Check Ctrl+C or Signals
 	eg.Go(func() error {
 		signalChannel := make(chan os.Signal, 1)
 		signal.Notify(signalChannel, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -59,7 +60,7 @@ func Run(sconf *server.Config, version string) error {
 	if err != nil {
 		return fmt.Errorf("loading hostsfile: %w", err)
 	}
-
+	log.Debug("create server")
 	s := server.New(hf, sconf, version)
 	stats.Collect()
 
@@ -75,12 +76,13 @@ func Run(sconf *server.Config, version string) error {
 		}()
 	}
 
+	// Run DNS server
 	eg.Go(func() error {
 		errCh := make(chan error)
 		go func() { errCh <- s.Run(gctx) }()
 		select {
 		case err := <-errCh:
-			log.Debug("error from errCh")
+			log.Debug("error from errCh", err)
 			return err
 		case <-gctx.Done():
 			return gctx.Err()
@@ -92,6 +94,7 @@ func Run(sconf *server.Config, version string) error {
 			log.Info("context was canceled")
 			return nil
 		} else {
+			log.Error("error", err)
 			return err
 		}
 	}

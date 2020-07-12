@@ -174,5 +174,7 @@ func main() {
 		return pkg.Run(config, Version)
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		nativelog.Fatal(err)
+	}
 }
