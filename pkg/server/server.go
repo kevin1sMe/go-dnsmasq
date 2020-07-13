@@ -18,13 +18,13 @@ import (
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
-type pluggableFunc func(m *dns.Msg, q dns.Question, targetName string, isTCP bool) (*dns.Msg, error)
-type server struct {
+type PluggableFunc func(m *dns.Msg, q dns.Question, targetName string, isTCP bool) (*dns.Msg, error)
+type Server struct {
 	hosts   Hostfile
 	config  *Config
 	version string
 
-	pluggableFunc *pluggableFunc
+	pluggableFunc *PluggableFunc
 
 	dnsUDPclient *dns.Client // used for forwarding queries
 	dnsTCPclient *dns.Client // used for forwarding queries
@@ -36,9 +36,9 @@ type Hostfile interface {
 	FindReverse(name string) (string, error)
 }
 
-// New returns a new server.
-func New(hostfile Hostfile, config *Config, v string, f *pluggableFunc) *server {
-	return &server{
+// New returns a new Server.
+func New(hostfile Hostfile, config *Config, v string, f *PluggableFunc) *Server {
+	return &Server{
 		hosts:         hostfile,
 		config:        config,
 		version:       v,
@@ -49,8 +49,8 @@ func New(hostfile Hostfile, config *Config, v string, f *pluggableFunc) *server 
 	}
 }
 
-// Run is a blocking operation that starts the server listening on the DNS ports.
-func (s *server) Run(ctx context.Context) error {
+// Run is a blocking operation that starts the Server listening on the DNS ports.
+func (s *Server) Run(ctx context.Context) error {
 	mux := dns.NewServeMux()
 	mux.Handle(".", s)
 	if s.config.Systemd {
@@ -60,7 +60,7 @@ func (s *server) Run(ctx context.Context) error {
 	return s.runProccess(ctx, mux)
 }
 
-func (s *server) runProccess(ctx context.Context, mux *dns.ServeMux) error {
+func (s *Server) runProccess(ctx context.Context, mux *dns.ServeMux) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(s.dnsListenAndServerWithContext(ctx, s.config.DnsAddr, "tcp", mux))
 	s.dnsReadyMsg(s.config.DnsAddr, "tcp")
@@ -69,7 +69,7 @@ func (s *server) runProccess(ctx context.Context, mux *dns.ServeMux) error {
 	return eg.Wait()
 }
 
-func (s *server) dnsListenAndServerWithContext(ctx context.Context, addr, net string, mux *dns.ServeMux) func() error {
+func (s *Server) dnsListenAndServerWithContext(ctx context.Context, addr, net string, mux *dns.ServeMux) func() error {
 	return func() error {
 		server := &dns.Server{Addr: addr, Net: net, Handler: mux}
 		go func() {
@@ -85,7 +85,7 @@ func (s *server) dnsListenAndServerWithContext(ctx context.Context, addr, net st
 	}
 }
 
-func (s *server) runSystemd(ctx context.Context, mux *dns.ServeMux) error {
+func (s *Server) runSystemd(ctx context.Context, mux *dns.ServeMux) error {
 	packetConns, err := activation.PacketConns()
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func (s *server) runSystemd(ctx context.Context, mux *dns.ServeMux) error {
 	return eg.Wait()
 }
 
-func (s *server) dnsActivateAndServeWithContext(ctx context.Context, l net.Listener, p net.PacketConn, mux *dns.ServeMux) func() error {
+func (s *Server) dnsActivateAndServeWithContext(ctx context.Context, l net.Listener, p net.PacketConn, mux *dns.ServeMux) func() error {
 	return func() error {
 		server := &dns.Server{Listener: l, PacketConn: p, Handler: mux}
 		go func() {
@@ -137,7 +137,7 @@ func (s *server) dnsActivateAndServeWithContext(ctx context.Context, l net.Liste
 	}
 }
 
-func (s *server) dnsReadyMsg(addr, net string) {
+func (s *Server) dnsReadyMsg(addr, net string) {
 	rCacheState := "disabled"
 	if s.config.RCache > 0 {
 		rCacheState = fmt.Sprintf("capacity: %d", s.config.RCache)

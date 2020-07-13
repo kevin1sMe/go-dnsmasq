@@ -187,7 +187,7 @@ func CreateStubMap(stubzones []string) (map[string][]string, error) {
 			}
 
 			if err := validateHostPort(hostPort); err != nil {
-				return nil, fmt.Errorf("Stubzone server address is invalid: %s", err)
+				return nil, fmt.Errorf("Stubzone Server address is invalid: %s", err)
 			}
 
 			for _, sdomain := range strings.Split(segments[0], ",") {

@@ -10,7 +10,7 @@ import (
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
-func (s *server) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
+func (s *Server) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	startTime := time.Now()
 	defer func() {
 		elapsed := time.Since(startTime)
@@ -47,8 +47,8 @@ func (s *server) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 // ServeDNS is the handler for DNS requests, responsible for parsing DNS request, possibly forwarding
-// it to a real dns server and returning a response.
-func (s *server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool, bufsize uint16, m *dns.Msg, err error) {
+// it to a real dns Server and returning a response.
+func (s *Server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool, bufsize uint16, m *dns.Msg, err error) {
 	m = new(dns.Msg)
 	m.SetReply(req)
 	m.Authoritative = false
@@ -84,7 +84,7 @@ func (s *server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool,
 		if err != nil {
 			msgFail := new(dns.Msg)
 			s.ServerFailure(msgFail, req)
-			log.Errorf("pluggableFunc: %s", name)
+			log.Errorf("PluggableFunc: %s", name)
 			return tcp, dnssec, bufsize, msgFail, nil
 		}
 		if dfMessage != nil {
@@ -137,13 +137,13 @@ func (s *server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool,
 			switch name {
 			case "version.bind.":
 				fallthrough
-			case "version.server.":
+			case "version.Server.":
 				hdr := dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassCHAOS, Ttl: 0}
 				m.Answer = []dns.RR{&dns.TXT{Hdr: hdr, Txt: []string{s.version}}}
 				return tcp, dnssec, bufsize, m, nil
 			case "hostname.bind.":
 				fallthrough
-			case "id.server.":
+			case "id.Server.":
 				// TODO(miek): machine name to return
 				hdr := dns.RR_Header{Name: q.Name, Rrtype: dns.TypeTXT, Class: dns.ClassCHAOS, Ttl: 0}
 				m.Answer = []dns.RR{&dns.TXT{Hdr: hdr, Txt: []string{"localhost"}}}
@@ -160,11 +160,11 @@ func (s *server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool,
 	return tcp, dnssec, bufsize, s.ServeDNSForward(w, req), nil
 }
 
-func (s *server) ServerFailure(m, req *dns.Msg) {
+func (s *Server) ServerFailure(m, req *dns.Msg) {
 	m.SetRcode(req, dns.RcodeServerFailure)
 }
 
-func (s *server) RoundRobin(rrs []dns.RR) {
+func (s *Server) RoundRobin(rrs []dns.RR) {
 	if !s.config.RoundRobin {
 		return
 	}

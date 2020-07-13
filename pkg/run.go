@@ -22,7 +22,45 @@ type Args struct {
 	NameServers []string
 }
 
-func Run(sconf *server.Config, version string) error {
+func BuildServer(sconf *server.Config, f *server.PluggableFunc, version string) (s *server.Server, err error) {
+	if err := server.CheckConfig(sconf); err != nil {
+		return nil, fmt.Errorf("check server config: %w", err)
+	}
+
+	log.Infof("Nameservers: %v", sconf.Nameservers)
+	if sconf.EnableSearch {
+		log.Infof("Search domains: %v", sconf.SearchDomains)
+	}
+
+	var hf *hosts.Hostsfile
+	if hf, err = hosts.NewHostsfile(sconf.Hostsfile, &hosts.Config{
+		Poll:    sconf.PollInterval,
+		Verbose: sconf.Verbose,
+	}); err != nil {
+		return nil, fmt.Errorf("loading hostsfile: %w", err)
+	}
+
+	if sconf.DefaultResolver {
+		address, _, err := net.SplitHostPort(sconf.DnsAddr)
+		if err != nil {
+			return nil, fmt.Errorf("SplitHostPort from resolver : %w", err)
+		}
+		if err := resolvconf.StoreAddress(address); err != nil {
+			return nil, fmt.Errorf("register as default nameserver: %w", err)
+		}
+	}
+
+	log.Debug("create server")
+	return server.New(hf, sconf, version, f), nil
+
+}
+
+func Run(s *server.Server) error {
+	defer func() {
+		log.Info("Restoring /etc/resolv.conf")
+		resolvconf.Clean()
+	}()
+
 	// trap Ctrl+C and call cancel on the context
 	ctx, done := context.WithCancel(context.Background())
 	eg, gctx := errgroup.WithContext(ctx)
@@ -44,37 +82,7 @@ func Run(sconf *server.Config, version string) error {
 		return nil
 	})
 
-	if err := server.CheckConfig(sconf); err != nil {
-		return fmt.Errorf("check server config: %w", err)
-	}
-
-	log.Infof("Nameservers: %v", sconf.Nameservers)
-	if sconf.EnableSearch {
-		log.Infof("Search domains: %v", sconf.SearchDomains)
-	}
-
-	hf, err := hosts.NewHostsfile(sconf.Hostsfile, &hosts.Config{
-		Poll:    sconf.PollInterval,
-		Verbose: sconf.Verbose,
-	})
-	if err != nil {
-		return fmt.Errorf("loading hostsfile: %w", err)
-	}
-	log.Debug("create server")
-	s := server.New(hf, sconf, version, nil)
 	stats.Collect()
-
-	if sconf.DefaultResolver {
-		address, _, _ := net.SplitHostPort(sconf.DnsAddr)
-		if err := resolvconf.StoreAddress(address); err != nil {
-			return fmt.Errorf("register as default nameserver: %w", err)
-		}
-
-		defer func() {
-			log.Info("Restoring /etc/resolv.conf")
-			resolvconf.Clean()
-		}()
-	}
 
 	// Run DNS server
 	eg.Go(func() error {

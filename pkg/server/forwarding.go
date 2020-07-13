@@ -13,7 +13,7 @@ import (
 )
 
 // ServeDNSForward resolves a query by forwarding to a recursive nameserver
-func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
+func (s *Server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	name := req.Question[0].Name
 	nameDots := dns.CountLabel(name) - 1
 	refuse := false
@@ -142,7 +142,7 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 }
 
 // forwardSearch resolves a query by suffixing with search paths
-func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
+func (s *Server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	var r *dns.Msg
 	var nodata *dns.Msg   // stores the copy of a NODATA reply
 	var searchName string // stores the current name suffixed with search domain
@@ -161,7 +161,7 @@ func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 		didSearch = true
 		r, err = s.forwardQuery(reqCopy, tcp)
 		if err != nil {
-			// No server currently available, give up
+			// No Server currently available, give up
 			break
 		}
 
@@ -219,7 +219,7 @@ func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 }
 
 // forwardQuery sends the query to nameservers retrying once on error
-func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
+func (s *Server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	var nservers []string // Nameservers to use for this query
 	var nsIdx int
 	var r *dns.Msg
@@ -272,7 +272,7 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 				req.Id, nservers[nsIdx], req.Question[0].Name, err)
 		}
 
-		// Continue with next available server
+		// Continue with next available Server
 		if len(nservers)-1 > nsIdx {
 			nsIdx++
 		} else {
@@ -285,7 +285,7 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 
 // ServeDNSReverse is the handler for DNS requests for the reverse zone. If nothing is found
 // locally the request is forwarded to the forwarder for resolution.
-func (s *server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
+func (s *Server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m := new(dns.Msg)
 	m.SetReply(req)
 	m.Compress = true

@@ -6,7 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (s *server) AddressRecords(q dns.Question, name string) (records []dns.RR, err error) {
+func (s *Server) AddressRecords(q dns.Question, name string) (records []dns.RR, err error) {
 	results, err := s.hosts.FindHosts(name)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (s *server) AddressRecords(q dns.Question, name string) (records []dns.RR, 
 	return records, nil
 }
 
-func (s *server) PTRRecords(q dns.Question) (records []dns.RR, err error) {
+func (s *Server) PTRRecords(q dns.Question) (records []dns.RR, err error) {
 	name := strings.ToLower(q.Name)
 	result, err := s.hosts.FindReverse(name)
 	if err != nil {

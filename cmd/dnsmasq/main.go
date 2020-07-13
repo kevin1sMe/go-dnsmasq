@@ -126,22 +126,22 @@ func main() {
 
 		nameservers, err := server.CreateNameservers(c.StringSlice("nameservers"))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		searchDomains, err := server.CreateSearchDomains(c.StringSlice("search-domains"))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		stubmap, err := server.CreateStubMap(c.StringSlice("stubzones"))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		listen, err := server.CreateListenAddress(c.String("listen"))
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		config := &server.Config{
@@ -171,10 +171,14 @@ func main() {
 			}
 		}
 
-		return pkg.Run(config, Version)
+		s, err := pkg.BuildServer(config, nil, Version)
+		if err != nil {
+			return err
+		}
+		return pkg.Run(s)
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		nativelog.Fatal(err)
+		log.Fatal(err)
 	}
 }

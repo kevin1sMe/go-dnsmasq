@@ -19,16 +19,16 @@ package server
 )
 
 // Keep global port counter that increments with 10 for each
-// new call to newTestServer. The dns server is started on port 'Port'.
+// new call to newTestServer. The dns Server is started on port 'Port'.
 var (
 	Port        = 9400
 	StrPort     = "9400" // string equivalent of Port
 )
 
-func newTestServer(t *testing.T, c bool) *server {
+func newTestServer(t *testing.T, c bool) *Server {
 	Port += 10
 	StrPort = strconv.Itoa(Port)
-	s := new(server)
+	s := new(Server)
 	client := etcd.NewClient([]string{"http://127.0.0.1:4001"})
 
 	// TODO(miek): why don't I use NewServer??
@@ -57,7 +57,7 @@ func newTestServer(t *testing.T, c bool) *server {
 	return s
 }
 
-func newTestServerDNSSEC(t *testing.T, cache bool) *server {
+func newTestServerDNSSEC(t *testing.T, cache bool) *Server {
 	var err error
 	s := newTestServer(t, cache)
 	s.config.PubKey = newDNSKEY("skydns.test. IN DNSKEY 256 3 5 AwEAAaXfO+DOBMJsQ5H4TfiabwSpqE4cGL0Qlvh5hrQumrjr9eNSdIOjIHJJKCe56qBU5mH+iBlXP29SVf6UiiMjIrAPDVhClLeWFe0PC+XlWseAyRgiLHdQ8r95+AfkhO5aZgnCwYf9FGGSaT0+CRYN+PyDbXBTLK5FN+j5b6bb7z+d")
@@ -198,7 +198,7 @@ func TestDNSStubForward(t *testing.T) {
 	defer s1.Stop()
 	s1.config.Domain = "skydns.com."
 
-	// Add forwarding IP for internal.skydns.com. Use Port to point to server s.
+	// Add forwarding IP for internal.skydns.com. Use Port to point to Server s.
 	stubForward := &msg.Service{
 		Host: "127.0.0.1", Port: Port, Key: "b.internal.skydns.com.stub.dns.skydns.test.",
 	}
@@ -206,7 +206,7 @@ func TestDNSStubForward(t *testing.T) {
 	defer delService(t, s, stubForward.Key)
 	s.UpdateStubZones()
 
-	// Add an answer for this in our "new" server.
+	// Add an answer for this in our "new" Server.
 	stubReply := &msg.Service{
 		Host: "127.1.1.1", Key: "www.internal.skydns.com.",
 	}
@@ -228,7 +228,7 @@ func TestDNSStubForward(t *testing.T) {
 	defer s2.Stop()
 	s2.config.Domain = "internal.skydns.net."
 
-	// Add forwarding IP for internal.skydns.net. Use Port to point to server s.
+	// Add forwarding IP for internal.skydns.net. Use Port to point to Server s.
 	stubForward1 := &msg.Service{
 		Host: "127.0.0.1", Port: Port, Key: "b.internal.skydns.net.stub.dns.skydns.test.",
 	}
@@ -236,7 +236,7 @@ func TestDNSStubForward(t *testing.T) {
 	defer delService(t, s, stubForward1.Key)
 	s.UpdateStubZones()
 
-	// Add an answer for this in our "new" server.
+	// Add an answer for this in our "new" Server.
 	stubReply1 := &msg.Service{
 		Host: "127.10.10.10", Key: "www.internal.skydns.net.",
 	}
@@ -1113,7 +1113,7 @@ func TestDedup(t *testing.T) {
 		newA("svc.ns.kubernetes.local. IN A 1.1.1.1"),
 		newA("svc.ns.kubernetes.local. IN A 1.1.1.1"),
 	}
-	s := &server{}
+	s := &Server{}
 	m = s.dedup(m)
 	sort.Sort(rrSet(m.Answer))
 	if len(m.Answer) != 3 {
@@ -1195,7 +1195,7 @@ func TestMsgOverflow(t *testing.T) {
 	t.Logf("%s", resp)
 
 	if resp.Rcode != dns.RcodeSuccess {
-		t.Fatalf("expecting server failure, got %d", resp.Rcode)
+		t.Fatalf("expecting Server failure, got %d", resp.Rcode)
 	}
 }
 
