@@ -61,7 +61,7 @@ func Run(sconf *server.Config, version string) error {
 		return fmt.Errorf("loading hostsfile: %w", err)
 	}
 	log.Debug("create server")
-	s := server.New(hf, sconf, version)
+	s := server.New(hf, sconf, version, nil)
 	stats.Collect()
 
 	if sconf.DefaultResolver {

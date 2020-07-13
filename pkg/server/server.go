@@ -18,10 +18,13 @@ import (
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
+type pluggableFunc func(m *dns.Msg, q dns.Question, targetName string, isTCP bool) (*dns.Msg, error)
 type server struct {
 	hosts   Hostfile
 	config  *Config
 	version string
+
+	pluggableFunc *pluggableFunc
 
 	dnsUDPclient *dns.Client // used for forwarding queries
 	dnsTCPclient *dns.Client // used for forwarding queries
@@ -34,14 +37,15 @@ type Hostfile interface {
 }
 
 // New returns a new server.
-func New(hostfile Hostfile, config *Config, v string) *server {
+func New(hostfile Hostfile, config *Config, v string, f *pluggableFunc) *server {
 	return &server{
-		hosts:        hostfile,
-		config:       config,
-		version:      v,
-		rcache:       cache.New(config.RCache, config.RCacheTtl),
-		dnsUDPclient: &dns.Client{Net: "udp", ReadTimeout: 2 * config.ReadTimeout, WriteTimeout: 2 * config.ReadTimeout, SingleInflight: true},
-		dnsTCPclient: &dns.Client{Net: "tcp", ReadTimeout: 2 * config.ReadTimeout, WriteTimeout: 2 * config.ReadTimeout, SingleInflight: true},
+		hosts:         hostfile,
+		config:        config,
+		version:       v,
+		rcache:        cache.New(config.RCache, config.RCacheTtl),
+		dnsUDPclient:  &dns.Client{Net: "udp", ReadTimeout: 2 * config.ReadTimeout, WriteTimeout: 2 * config.ReadTimeout, SingleInflight: true},
+		dnsTCPclient:  &dns.Client{Net: "tcp", ReadTimeout: 2 * config.ReadTimeout, WriteTimeout: 2 * config.ReadTimeout, SingleInflight: true},
+		pluggableFunc: f,
 	}
 }
 

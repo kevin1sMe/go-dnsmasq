@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/miekg/dns"
+
 	"github.com/tomoyamachi/go-dnsmasq/pkg/cache"
 	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
@@ -77,6 +78,19 @@ func (s *server) serveDNS(w dns.ResponseWriter, req *dns.Msg) (tcp, dnssec bool,
 	}
 
 	log.Debugf("[%d] Got query for '%s %s' from %s", req.Id, dns.TypeToString[q.Qtype], q.Name, w.RemoteAddr().String())
+
+	if s.pluggableFunc != nil {
+		dfMessage, err := (*s.pluggableFunc)(m, q, name, tcp)
+		if err != nil {
+			msgFail := new(dns.Msg)
+			s.ServerFailure(msgFail, req)
+			log.Errorf("pluggableFunc: %s", name)
+			return tcp, dnssec, bufsize, msgFail, nil
+		}
+		if dfMessage != nil {
+			return tcp, dnssec, bufsize, dfMessage, nil
+		}
+	}
 
 	// Check cache first.
 	if m1 := s.rcache.Hit(q, dnssec, tcp, m.Id); m1 != nil {

@@ -1,19 +1,10 @@
 package server
 
 import (
-	"net"
 	"strings"
 
 	"github.com/miekg/dns"
 )
-
-func (s *server) dummyRecords(q dns.Question) []dns.RR {
-	r := new(dns.A)
-	r.Hdr = dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA,
-		Class: dns.ClassINET, Ttl: s.config.HostsTtl}
-	r.A = net.IPv4(111, 11, 11, 11)
-	return []dns.RR{r}
-}
 
 func (s *server) AddressRecords(q dns.Question, name string) (records []dns.RR, err error) {
 	results, err := s.hosts.FindHosts(name)
