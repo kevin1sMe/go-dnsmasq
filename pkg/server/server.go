@@ -1,8 +1,3 @@
-// Copyright (c) 2015 Jan Broer. All rights reserved.
-// Contains code (c) 2014 The SkyDNS Authors
-// Use of this source code is governed by The MIT License (MIT) that can be
-// found in the LICENSE file.
-
 package server
 
 import (
