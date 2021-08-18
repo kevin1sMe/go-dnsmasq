@@ -4,7 +4,7 @@ COPY . .
 RUN go env -w GO111MODULE=on && \
     go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct && \
     go mod download
-ARG VERSION=1.0.7
+ARG VERSION=1.1.0
 RUN go build -o dnsmasq -ldflags "-w -s -X main.Version=${VERSION}" -tags="netgo" -trimpath cmd/dnsmasq/main.go
 
 FROM golang:1.16-alpine
