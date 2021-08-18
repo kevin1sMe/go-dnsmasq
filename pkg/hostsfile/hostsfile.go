@@ -12,14 +12,15 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
+
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
 // Config stores options for hostsfile
 type Config struct {
 	// Positive value enables polling
-	Poll    int
+	Poll    time.Duration
 	Verbose bool
 }
 
@@ -98,21 +99,19 @@ func (h *Hostsfile) loadHostEntries() error {
 	return nil
 }
 
-func (h *Hostsfile) monitorHostEntries(poll int) {
+func (h *Hostsfile) monitorHostEntries(t time.Duration) {
 	hf := h.file
 
 	if hf.path == "" {
 		return
 	}
 
-	t := time.Duration(poll) * time.Second
-
 	for _ = range time.Tick(t) {
 		//log.Printf("go-dnsmasq: checking %q for updates…", hf.path)
 
 		mtime, size, err := hostsFileMetadata(hf.path)
 		if err != nil {
-			log.Warnf("Error stating hostsfile: %s", err)
+			log.Errorf("Error stating hostsfile: %s", err)
 			continue
 		}
 
@@ -121,7 +120,7 @@ func (h *Hostsfile) monitorHostEntries(poll int) {
 		}
 
 		if err := h.loadHostEntries(); err != nil {
-			log.Warnf("Error parsing hostsfile: %s", err)
+			log.Errorf("Error parsing hostsfile: %s", err)
 		}
 
 		log.Debug("Reloaded updated hostsfile")

@@ -7,14 +7,15 @@ package server
 import (
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/miekg/dns"
+
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
 )
 
 // ServeDNSForward resolves a query by forwarding to a recursive nameserver
-func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
+func (s *Server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	name := req.Question[0].Name
-	nameDots := dns.CountLabel(name)-1
+	nameDots := dns.CountLabel(name) - 1
 	refuse := false
 
 	switch {
@@ -32,15 +33,14 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	if refuse {
 		m := new(dns.Msg)
 		m.SetRcode(req, dns.RcodeRefused)
-		writeMsg(w, m)
 		return m
 	}
 
 	StatsForwardCount.Inc(1)
 
-    var searchEnabled, didAbsolute, didSearch bool
+	var searchEnabled, didAbsolute, didSearch bool
 	var absoluteRes, searchRes *dns.Msg // responses from absolute/search lookups
-	var absoluteErr, searchErr error // errors from absolute/search lookups
+	var absoluteErr, searchErr error    // errors from absolute/search lookups
 
 	tcp := isTCP(w)
 
@@ -63,7 +63,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 					req.Id, dns.RcodeToString[absoluteRes.Rcode])
 				absoluteRes.Compress = true
 				absoluteRes.Id = req.Id
-				writeMsg(w, absoluteRes)
 				return absoluteRes
 			}
 			didAbsolute = true
@@ -86,7 +85,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 				req.Id, dns.RcodeToString[searchRes.Rcode])
 			searchRes.Compress = true
 			searchRes.Id = req.Id
-			writeMsg(w, searchRes)
 			return searchRes
 		}
 		didSearch = true
@@ -108,7 +106,6 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 					req.Id, dns.RcodeToString[absoluteRes.Rcode])
 				absoluteRes.Compress = true
 				absoluteRes.Id = req.Id
-				writeMsg(w, absoluteRes)
 				return absoluteRes
 			}
 			didAbsolute = true
@@ -122,19 +119,17 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	// a no-data response with the rcode from the last search we did.
 	if didAbsolute && absoluteErr == nil {
 		log.Debugf("[%d] Failed to resolve query. Returning response of absolute lookup: %s",
-					req.Id, dns.RcodeToString[absoluteRes.Rcode])
+			req.Id, dns.RcodeToString[absoluteRes.Rcode])
 		absoluteRes.Compress = true
 		absoluteRes.Id = req.Id
-		writeMsg(w, absoluteRes)
 		return absoluteRes
 	}
 
 	if didSearch && searchErr == nil {
 		log.Debugf("[%d] Failed to resolve query. Returning no-data response: %s",
-					req.Id, dns.RcodeToString[searchRes.Rcode])
+			req.Id, dns.RcodeToString[searchRes.Rcode])
 		m := new(dns.Msg)
 		m.SetRcode(req, searchRes.Rcode)
-		writeMsg(w, m)
 		return m
 	}
 
@@ -143,14 +138,13 @@ func (s *server) ServeDNSForward(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	log.Debugf("[%d] Error forwarding query. Returning SRVFAIL.", req.Id)
 	m := new(dns.Msg)
 	m.SetRcode(req, dns.RcodeServerFailure)
-	writeMsg(w, m)
 	return m
 }
 
 // forwardSearch resolves a query by suffixing with search paths
-func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
+func (s *Server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	var r *dns.Msg
-	var nodata *dns.Msg // stores the copy of a NODATA reply
+	var nodata *dns.Msg   // stores the copy of a NODATA reply
 	var searchName string // stores the current name suffixed with search domain
 	var err error
 	var didSearch bool
@@ -167,13 +161,13 @@ func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 		didSearch = true
 		r, err = s.forwardQuery(reqCopy, tcp)
 		if err != nil {
-			// No server currently available, give up
+			// No Server currently available, give up
 			break
 		}
 
 		switch r.Rcode {
 		case dns.RcodeSuccess:
-			// In case of NO_DATA keep searching, otherwise a wildcard entry 
+			// In case of NO_DATA keep searching, otherwise a wildcard entry
 			// could keep us from finding the answer higher in the search list
 			if len(r.Answer) == 0 && !r.MsgHdr.Truncated {
 				nodata = r.Copy()
@@ -207,7 +201,7 @@ func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 				}
 				r.Answer = answers
 			}
-		// If we ever got a NODATA, return this instead of a negative result
+			// If we ever got a NODATA, return this instead of a negative result
 		} else if nodata != nil {
 			r = nodata
 		}
@@ -225,7 +219,7 @@ func (s *server) forwardSearch(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 }
 
 // forwardQuery sends the query to nameservers retrying once on error
-func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
+func (s *Server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	var nservers []string // Nameservers to use for this query
 	var nsIdx int
 	var r *dns.Msg
@@ -234,11 +228,13 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 	nservers = s.config.Nameservers
 
 	// Check whether the name matches a stub zone
-	for zone, srv := range *s.config.Stub {
-		if strings.HasSuffix(req.Question[0].Name, zone) {
-			nservers = srv
-			StatsStubForwardCount.Inc(1)
-			break
+	if s.config.Stub != nil {
+		for zone, srv := range s.config.Stub {
+			if strings.HasSuffix(req.Question[0].Name, zone) {
+				nservers = srv
+				StatsStubForwardCount.Inc(1)
+				break
+			}
 		}
 	}
 
@@ -276,7 +272,7 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 				req.Id, nservers[nsIdx], req.Question[0].Name, err)
 		}
 
-		// Continue with next available server
+		// Continue with next available Server
 		if len(nservers)-1 > nsIdx {
 			nsIdx++
 		} else {
@@ -289,7 +285,7 @@ func (s *server) forwardQuery(req *dns.Msg, tcp bool) (*dns.Msg, error) {
 
 // ServeDNSReverse is the handler for DNS requests for the reverse zone. If nothing is found
 // locally the request is forwarded to the forwarder for resolution.
-func (s *server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
+func (s *Server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m := new(dns.Msg)
 	m.SetReply(req)
 	m.Compress = true
@@ -297,15 +293,8 @@ func (s *server) ServeDNSReverse(w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m.RecursionAvailable = true
 	if records, err := s.PTRRecords(req.Question[0]); err == nil && len(records) > 0 {
 		m.Answer = records
-		writeMsg(w, m)
 		return m
 	}
 	// Always forward if not found locally.
 	return s.ServeDNSForward(w, req)
-}
-
-func writeMsg(w dns.ResponseWriter, m *dns.Msg) {
-	if err := w.WriteMsg(m); err != nil {
-		log.Errorf("[%d] Failed to return reply: %v", m.Id, err)
-	}
 }

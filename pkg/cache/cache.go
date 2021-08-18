@@ -35,11 +35,11 @@ type Cache struct {
 }
 
 // New returns a new cache with the capacity and the ttl specified.
-func New(capacity, ttl int) *Cache {
+func New(capacity int, ttl time.Duration) *Cache {
 	c := new(Cache)
 	c.m = make(map[string]*elem)
 	c.capacity = capacity
-	c.ttl = time.Duration(ttl) * time.Second
+	c.ttl = ttl
 	return c
 }
 

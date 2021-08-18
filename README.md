@@ -1,13 +1,72 @@
 # go-dnsmasq
-[![Latest Version](https://img.shields.io/github/release/janeczku/go-dnsmasq.svg?maxAge=60)][release]
-[![Github All Releases](https://img.shields.io/github/downloads/janeczku/go-dnsmasq/total.svg?maxAge=86400)]()
-[![Docker Pulls](https://img.shields.io/docker/pulls/janeczku/go-dnsmasq.svg?maxAge=86400)][hub]
-[![License](https://img.shields.io/github/license/janeczku/go-dnsmasq.svg?maxAge=86400)]()
 
-[release]: https://github.com/janeczku/go-dnsmasq/releases
-[hub]: https://hub.docker.com/r/janeczku/go-dnsmasq/
+tomoyamachi/go-dnsmasq is a fork of [janeczku/go-dnsmasq](https://github.com/janeczku/go-dnsmasq).
 
-go-dnsmasq is a lightweight (1.2 MB) DNS caching server/forwarder with minimal filesystem and runtime overhead.
+go-dnsmasq is a lightweight DNS caching server/forwarder with minimal filesystem and runtime overhead.
+
+
+## Dynamic Name resolving
+
+tomoyamachi/go-dnsmasq provides pluggable DNS resolve function.
+
+```go
+package main
+
+import (
+	"math/rand"
+	"net"
+	"os"
+	"time"
+
+	"github.com/miekg/dns"
+	"github.com/tomoyamachi/go-dnsmasq/pkg"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/log"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/resolvconf"
+	"github.com/tomoyamachi/go-dnsmasq/pkg/server"
+)
+
+// return 1.1.1.1 randomly
+func return1111() server.PluggableFunc {
+	return func(m *dns.Msg, q dns.Question, targetName string, isTCP bool) (*dns.Msg, error) {
+		if rand.Intn(10) > 4 {
+			return nil, nil
+		}
+		r := new(dns.A)
+		r.Hdr = dns.RR_Header{Name: q.Name, Rrtype: dns.TypeA,
+			Class: dns.ClassINET, Ttl: 10}
+		r.A = net.ParseIP("1.1.1.1")
+		m.Answer = append(m.Answer, r)
+		return m, nil
+	}
+}
+
+func main() {
+	log.New("debug")
+	listen, err := server.CreateListenAddress("0.0.0.0:53")
+	if err != nil {
+		return
+	}
+	sconf := &server.Config{
+		DnsAddr:         listen,
+		DefaultResolver: true,
+		Hostsfile:       "/etc/hosts",
+		ReadTimeout:     time.Second,
+	}
+	resolvconf.Clean()
+	if err := server.ResolvConf(sconf, true); err != nil {
+		if !os.IsNotExist(err) {
+			log.Errorf("parsing resolve.conf: %w", err)
+			return
+		}
+	}
+	pf := return1111()
+	s, err := pkg.BuildServer(sconf, &pf, "")
+	if err != nil {
+		return
+	}
+	log.Error(pkg.Run(s))
+}
+```
 
 ### Application examples:
 
@@ -54,10 +113,7 @@ DNS queries are resolved in the style of the GNU libc resolver:
 | --fwd-ndots                    | Number of dots a name must have before the query is forwarded                 | 0 | $DNSMASQ_FWD_NDOTS   |
 | --ndots                        | Number of dots a name must have before making an initial absolute query (supersedes /etc/resolv.conf) | 1  | $DNSMASQ_NDOTS |
 | --round-robin                  | Enable round robin of A/AAAA records                                          | False         | $DNSMASQ_RR          |
-| --systemd                      | Bind to socket(s) activated by Systemd (ignores --listen)                     | False         | $DNSMASQ_SYSTEMD     |
 | --verbose                      | Enable verbose logging                                                        | False         | $DNSMASQ_VERBOSE     |
-| --syslog                       | Enable syslog logging                                                         | False         | $DNSMASQ_SYSLOG      |
-| --multithreading               | Enable multithreading (experimental)                                          | False         |                      |
 | --help, -h                     | Show help                                                                     |               |                      |
 | --version, -v                  | Print the version                                                             |               |                      |
 
@@ -79,7 +135,7 @@ Set to your StatHat account email address
 
 #### Run from the command line
 
-Download the binary for your OS from the [releases page](https://github.com/janeczku/go-dnsmasq/releases/latest).    
+Download the binary for your OS from the [releases page](https://github.com/tomoyamachi/go-dnsmasq/releases/latest).    
 
 go-dnsmasq is available in two versions. The minimal version (`go-dnsmasq-min`) has a lower memory footprint but doesn't have caching, stats reporting and systemd support.
 
@@ -89,10 +145,10 @@ go-dnsmasq is available in two versions. The minimal version (`go-dnsmasq-min`) 
 
 #### Run as a Docker container
 
-Docker Hub trusted builds are [available](https://hub.docker.com/r/janeczku/go-dnsmasq/).
+Docker Hub trusted builds are [available](https://hub.docker.com/r/tomoyamachi/go-dnsmasq/).
 
 ```sh
-docker run -d -p 53:53/udp -p 53:53 janeczku/go-dnsmasq:latest
+docker run -d -p 53:53/udp -p 53:53 tomoyamachi/go-dnsmasq:latest
 ```
 
 You can pass go-dnsmasq configuration parameters by setting the corresponding environmental variables with Docker's `-e` flag.
