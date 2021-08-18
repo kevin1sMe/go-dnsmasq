@@ -1,13 +1,12 @@
 # go-dnsmasq
 
-tomoyamachi/go-dnsmasq is a fork of [janeczku/go-dnsmasq](https://github.com/janeczku/go-dnsmasq).
+this is a fork of [janeczku/go-dnsmasq](https://github.com/janeczku/go-dnsmasq) and [Doout/go-dnsmasq](https://github.com/Doout/go-dnsmasq).
 
 go-dnsmasq is a lightweight DNS caching server/forwarder with minimal filesystem and runtime overhead.
 
-
 ## Dynamic Name resolving
 
-tomoyamachi/go-dnsmasq provides pluggable DNS resolve function.
+go-dnsmasq provides pluggable DNS resolve function.
 
 ```go
 package main
@@ -104,6 +103,7 @@ DNS queries are resolved in the style of the GNU libc resolver:
 | --nameservers, -n              | Comma delimited list of nameservers `host[:port]`. IPv6 literal address must be enclosed in brackets. (supersedes etc/resolv.conf) | -  | $DNSMASQ_SERVERS     |
 | --stubzones, -z                | Use different nameservers for given domains. Can be passed multiple times. `domain[,domain]/host[:port][,host[:port]]`   | -  |$DNSMASQ_STUB        |
 | --hostsfile, -f                | Path to a hosts file (e.g. ‘/etc/hosts‘)                                      | -             | $DNSMASQ_HOSTSFILE   |
+| --hostsfiles, --fs             | Path to a hosts file directory (e.g. ‘/etc/hosts‘)                            | -             | $DNSMASQ_DIRECTORY_HOSTSFILES   |
 | --hostsfile-poll, -p           | How frequently to poll hosts file for changes (seconds, ‘0‘ to disable)       | 0             | $DNSMASQ_POLL        |
 | --search-domains, -s           | Comma delimited list of search domains `domain[,domain]` (supersedes /etc/resolv.conf) | -             | $DNSMASQ_SEARCH_DOMAINS      |
 | --enable-search, -search       | Qualify names with search domains to resolve queries                          | False         | $DNSMASQ_ENABLE_SEARCH      |
