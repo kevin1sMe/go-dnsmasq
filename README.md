@@ -148,7 +148,7 @@ go-dnsmasq is available in two versions. The minimal version (`go-dnsmasq-min`) 
 Docker Hub trusted builds are [available](https://hub.docker.com/r/soulteary/go-dnsmasq/).
 
 ```sh
-docker run -d -p 53:53/udp -p 53:53 tomoyamachi/go-dnsmasq:latest
+docker run -d -p 53:53/udp -p 53:53 soulteary/go-dnsmasq
 ```
 
 You can pass go-dnsmasq configuration parameters by setting the corresponding environmental variables with Docker's `-e` flag.
