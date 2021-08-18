@@ -1,4 +1,4 @@
-FROM golang:1.14
+FROM golang:1.16-alpine
 ENV TARGET_DIR github.com/soulteary/go-dnsmasq
 WORKDIR /go/src/${TARGET_DIR}
 COPY . .
