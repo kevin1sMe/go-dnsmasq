@@ -120,7 +120,7 @@ func (h *Hostsfiles) monitorHostFiles(poll time.Duration) {
 				}
 			}
 			//If any of the file change, reload them all
-			log.Debug("Reloaded updated hostsfile")
+			log.Infof("Reloaded updated hostsfile, mtime:%s", mtime.Local().Format(time.RFC3339))
 			h.hostMutex.Lock()
 			h.reloadAll()
 			h.hostMutex.Unlock()

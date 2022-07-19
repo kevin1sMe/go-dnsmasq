@@ -30,8 +30,9 @@ func newHostlist(data []byte) *hostlist {
 
 func newHostlistString(data string) *hostlist {
 	hostlist := hostlist{}
-	for _, v := range strings.Split(data, "\n") {
+	for i, v := range strings.Split(data, "\n") {
 		for _, hostname := range parseLine(v) {
+			log.Infof("hostsfile line[%d]: %s", i, v)
 			err := hostlist.add(hostname)
 			if err != nil {
 				log.Errorf("Bad formatted hostsfile line: %s", err)
