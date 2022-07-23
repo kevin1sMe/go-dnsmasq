@@ -1,6 +1,6 @@
 docker-build:
   stage: build
-  #tags: ["runner-1"]
+  tags: ["runner-1"]
   variables:
       CI_REGISTRY_IMAGE: "registry.mrlin.cc/go-dnsmasq"
   # Default branch leaves tag empty (= latest tag)
