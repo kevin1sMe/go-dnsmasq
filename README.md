@@ -153,6 +153,31 @@ docker run -d -p 53:53/udp -p 53:53 soulteary/go-dnsmasq
 
 You can pass go-dnsmasq configuration parameters by setting the corresponding environmental variables with Docker's `-e` flag.
 
+#### Run as a Docker container with docker-compose
+
+Docker Hub trusted builds are [available](https://hub.docker.com/r/soulteary/go-dnsmasq/).
+
+```yaml
+version: "3"
+services:
+  dns:
+    image: soulteary/go-dnsmasq
+    command: dnsmasq -l 0.0.0.0:53 -f /hosts.conf -p 1s --nameservers 8.8.8.8:53 --log-level info
+    restart: always
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./hosts.conf:/hosts.conf:rw
+```
+
+You can use the `docker volume` to mount the **hosts.conf** file outside the container, which is convenient for you to modify.
+
+Tips: Please note that if you use **vim** to edit, it may cause inode changes due to vim's **backupcopy** settings, which will make the compilation action incorrectly perceived. Set as below:
+```bash
+echo "set backupcopy=yes" >> ~/.vimrc
+```
+
 #### Serving A/AAAA records from a hosts file
 The `--hostsfile` parameter expects a standard plain text [hosts file](https://en.wikipedia.org/wiki/Hosts_(file)) with the only difference being that a wildcard `*` in the left-most label of hostnames is allowed. Wildcard entries will match any subdomain that is not explicitly defined.
 For example, given a hosts file with the following content:
